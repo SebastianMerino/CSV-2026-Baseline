@@ -14,11 +14,228 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from dataset.csv import CSVSemiDataset 
+import matplotlib
+matplotlib.use("Agg")  # non-interactive backend — safe for training scripts
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+
+from dataset.csv import CSVSemiDataset
 from util.utils import AverageMeter, count_params, DiceLoss, compute_nsd
 
 from model.Echocare import Echocare_UniMatch
 from model.unet import UNetTwoView
+
+
+# ------------------------------------------------------------------
+# Colour palette for segmentation overlays
+#   class 0 = background  (transparent)
+#   class 1 = Plaque      (red)
+#   class 2 = Vessel      (green)
+# ------------------------------------------------------------------
+SEG_PALETTE = {
+    0: None,                  # background — no overlay
+    1: (1.0, 0.2, 0.2),      # plaque  — red
+    2: (0.2, 0.9, 0.2),      # vessel  — green
+}
+SEG_ALPHA = 0.45              # overlay transparency
+
+
+def _norm_image(arr: np.ndarray) -> np.ndarray:
+    """Normalise a 2-D float array to [0, 1]."""
+    lo, hi = arr.min(), arr.max()
+    if hi - lo < 1e-8:
+        return np.zeros_like(arr)
+    return (arr - lo) / (hi - lo)
+
+
+def _overlay_mask(base_grey: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """
+    Blend a segmentation mask onto a greyscale image.
+
+    Parameters
+    ----------
+    base_grey : H×W float in [0, 1]
+    mask      : H×W int with class indices
+
+    Returns
+    -------
+    H×W×3 float RGB in [0, 1]
+    """
+    rgb = np.stack([base_grey, base_grey, base_grey], axis=-1)  # H,W,3
+    for cls_idx, colour in SEG_PALETTE.items():
+        if colour is None:
+            continue
+        region = mask == cls_idx
+        if not region.any():
+            continue
+        for c in range(3):
+            rgb[..., c][region] = (
+                rgb[..., c][region] * (1 - SEG_ALPHA) + colour[c] * SEG_ALPHA
+            )
+    return rgb
+
+
+def save_qualitative_grid(
+    args,
+    model: nn.Module,
+    valid_loader: DataLoader,
+    device: torch.device,
+    epoch: int,
+    save_path: str,
+) -> None:
+    """
+    Pick up to 4 random validation samples, run inference, and save a
+    PNG grid.  Each column shows one sample; rows are:
+
+        Row 0 — Longitudinal input image
+        Row 1 — Long  GT  mask overlay
+        Row 2 — Long  Pred mask overlay
+        Row 3 — Transverse input image
+        Row 4 — Trans GT  mask overlay
+        Row 5 — Trans Pred mask overlay
+
+    A text annotation on each column shows the GT class label and the
+    predicted class (with confidence).
+    """
+    model.eval()
+
+    # ----------------------------------------------------------------
+    # Collect up to 4 random samples from the validation loader
+    # ----------------------------------------------------------------
+    all_batches = list(valid_loader)          # list of single-sample batches
+    n_total = len(all_batches)
+    n_samples = min(4, n_total)
+    chosen_idx = np.random.choice(n_total, size=n_samples, replace=False)
+
+    samples = []
+    with torch.no_grad():
+        for idx in chosen_idx:
+            x_long, x_trans, m_long, m_trans, y_cls = all_batches[idx]
+
+            x_long  = x_long.to(device)
+            x_trans = x_trans.to(device)
+
+            # resize for model
+            hL, wL = x_long.shape[-2:]
+            hT, wT = x_trans.shape[-2:]
+            xL_r = F.interpolate(x_long,  (args.resize_target, args.resize_target),
+                                 mode="bilinear", align_corners=False)
+            xT_r = F.interpolate(x_trans, (args.resize_target, args.resize_target),
+                                 mode="bilinear", align_corners=False)
+
+            segL, segT, cls_out = model(xL_r, xT_r)
+
+            # resize predictions back to original resolution
+            segL = F.interpolate(segL, (hL, wL), mode="bilinear", align_corners=False)
+            segT = F.interpolate(segT, (hT, wT), mode="bilinear", align_corners=False)
+
+            predL = torch.argmax(segL, dim=1)[0].cpu().numpy()   # H,W
+            predT = torch.argmax(segT, dim=1)[0].cpu().numpy()
+
+            cls_prob  = torch.sigmoid(cls_out).item()
+            cls_pred  = int(cls_prob >= 0.5)
+            cls_gt    = int(y_cls.view(-1)[0].item())
+
+            samples.append({
+                "xL":       x_long[0, 0].cpu().numpy(),    # H,W
+                "xT":       x_trans[0, 0].cpu().numpy(),
+                "gtL":      m_long[0].cpu().numpy(),        # H,W int
+                "gtT":      m_trans[0].cpu().numpy(),
+                "predL":    predL,
+                "predT":    predT,
+                "cls_pred": cls_pred,
+                "cls_prob": cls_prob,
+                "cls_gt":   cls_gt,
+            })
+
+    # ----------------------------------------------------------------
+    # Build the figure:  6 rows × n_samples columns
+    # ----------------------------------------------------------------
+    n_rows = 6
+    fig_w = n_samples * 3.0
+    fig_h = n_rows * 2.8
+    fig, axes = plt.subplots(n_rows, n_samples,
+                             figsize=(fig_w, fig_h),
+                             gridspec_kw={"hspace": 0.05, "wspace": 0.05})
+
+    # Ensure axes is always 2-D even for n_samples == 1
+    if n_samples == 1:
+        axes = np.array(axes).reshape(n_rows, 1)
+
+    row_titles = [
+        "Long — Image",
+        "Long — GT",
+        "Long — Pred",
+        "Trans — Image",
+        "Trans — GT",
+        "Trans — Pred",
+    ]
+
+    for col, s in enumerate(samples):
+        xL_n  = _norm_image(s["xL"])
+        xT_n  = _norm_image(s["xT"])
+
+        panels = [
+            np.stack([xL_n, xL_n, xL_n], axis=-1),          # row 0: long image
+            _overlay_mask(xL_n, s["gtL"]),                   # row 1: long GT
+            _overlay_mask(xL_n, s["predL"]),                 # row 2: long pred
+            np.stack([xT_n, xT_n, xT_n], axis=-1),          # row 3: trans image
+            _overlay_mask(xT_n, s["gtT"]),                   # row 4: trans GT
+            _overlay_mask(xT_n, s["predT"]),                 # row 5: trans pred
+        ]
+
+        for row, panel in enumerate(panels):
+            ax = axes[row, col]
+            ax.imshow(panel, interpolation="nearest")
+            ax.set_xticks([])
+            ax.set_yticks([])
+
+            # Row label on the leftmost column
+            if col == 0:
+                ax.set_ylabel(row_titles[row], fontsize=7,
+                              rotation=0, labelpad=72, va="center")
+
+        # ---- per-column classification annotation (bottom of column) ----
+        ax_bottom = axes[n_rows - 1, col]
+        gt_str   = "Vulnerable" if s["cls_gt"]   == 1 else "Non-vuln"
+        pred_str = "Vulnerable" if s["cls_pred"]  == 1 else "Non-vuln"
+        match    = "✓" if s["cls_pred"] == s["cls_gt"] else "✗"
+        colour   = "#44dd88" if s["cls_pred"] == s["cls_gt"] else "#ff5555"
+
+        ax_bottom.set_xlabel(
+            f"GT: {gt_str}\nPred: {pred_str} ({s['cls_prob']:.2f}) {match}",
+            fontsize=7,
+            color=colour,
+            labelpad=4,
+        )
+
+    # ---- global legend for segmentation colours ----
+    legend_patches = [
+        mpatches.Patch(color=SEG_PALETTE[1], label="Plaque"),
+        mpatches.Patch(color=SEG_PALETTE[2], label="Vessel"),
+    ]
+    fig.legend(
+        handles=legend_patches,
+        loc="lower center",
+        ncol=2,
+        fontsize=8,
+        framealpha=0.8,
+        bbox_to_anchor=(0.5, 0.0),
+    )
+
+    fig.suptitle(f"Validation samples — Epoch {epoch}  (new best)", fontsize=10, y=1.002)
+    plt.tight_layout()
+
+    # ----------------------------------------------------------------
+    # Save
+    # ----------------------------------------------------------------
+    grid_dir = os.path.join(save_path, "qualitative_grids")
+    os.makedirs(grid_dir, exist_ok=True)
+    out_path = os.path.join(grid_dir, f"epoch_{epoch:04d}_best.png")
+    fig.savefig(out_path, dpi=120, bbox_inches="tight")
+    plt.close(fig)
+
+    return out_path
 
 
 def main():
@@ -65,7 +282,7 @@ def main():
     logger.info(f"TensorBoard log dir: {tb_logdir}")
 
     model = get_model(args)
-    
+
     logger.info("Total params: {:.1f}M".format(count_params(model)))
     model = model.to(device)
 
@@ -74,7 +291,7 @@ def main():
     use_amp = args.amp and (device.type == "cuda")
     amp_dtype = torch.float16 if args.amp_dtype == "fp16" else torch.bfloat16
     scaler = torch.amp.GradScaler(enabled=use_amp and (amp_dtype == torch.float16))
-    
+
     db_train_u = CSVSemiDataset(args.train_unlabeled_json, "train_u", size=args.resize_target)
     db_train_l = CSVSemiDataset(args.train_labeled_json, "train_l", size=args.resize_target, n_sample=len(db_train_u.case_list))
     db_valid_l = CSVSemiDataset(args.valid_labeled_json, "valid")
@@ -108,10 +325,9 @@ def main():
 
     output_dict = validate(args, model, valid_loader, device, logger, writer=writer, epoch=0)
 
-
     for epoch in range(start_epoch, args.train_epochs):
         logger.info(f"===========> Epoch: {epoch}, LR: {optimizer.param_groups[0]['lr']:.6f}, Previous best: {previous_best:.2f}")
-        
+
         stats = train_one_epoch(
             args=args,
             model=model,
@@ -169,6 +385,13 @@ def main():
         if is_best:
             torch.save(ckpt, os.path.join(args.save_path, "best.pth"))
             logger.info(f"New best! total_score={total_score:.2f} saved to best.pth")
+
+        # ---- save qualitative grid ----
+        grid_path = save_qualitative_grid(
+            args, model, valid_loader, device, epoch, args.save_path
+        )
+        logger.info(f"Qualitative grid saved to {grid_path}")
+
         if is_best_seg:
             torch.save(ckpt, os.path.join(args.save_path, "best_seg.pth"))
             logger.info(f"New best segmentation! seg_score={seg_score:.4f} saved to best_seg.pth")
@@ -178,7 +401,7 @@ def main():
         # always save latest previous_best values into latest_ckpt for resume
         ckpt["previous_best_seg"] = previous_best_seg
         ckpt["previous_best_cls"] = previous_best_cls
-    
+
     writer.close()
     logger.info("Training finished.")
 
@@ -194,7 +417,6 @@ def pseudo_from_logits(seg_logits: torch.Tensor) -> Tuple[torch.Tensor, torch.Te
     prob = torch.softmax(seg_logits, dim=1)
     conf, mask = prob.max(dim=1)
     return conf, mask
-
 
 
 def cutmix_apply_image(img_s: torch.Tensor, img_mix: torch.Tensor, box: torch.Tensor) -> torch.Tensor:
@@ -253,7 +475,7 @@ def train_one_epoch(
     scaler
 ):
     model.train()
-    
+
     criterion_cls = nn.BCEWithLogitsLoss()
     criterion_cls_mse = nn.MSELoss()
     criterion_seg_ce = nn.CrossEntropyLoss()
@@ -358,10 +580,9 @@ def train_one_epoch(
             loss_x_seg = (loss_x_long + loss_x_trans) / 2.0
 
             # labeled cls loss (fused cls_x already)
-            # ensure y_cls is [B,1] float and apply BCEWithLogitsLoss on logits
             loss_x_cls = criterion_cls(cls_x, y_cls.float())
 
-            # unlabeled strong seg loss (Dice on pseudo) - average across (view,long/trans) and (s1/s2)
+            # unlabeled strong seg loss (Dice on pseudo)
             ignL1 = (confL_cm1 < args.conf_thresh).float()
             ignL2 = (confL_cm2 < args.conf_thresh).float()
             ignT1 = (confT_cm1 < args.conf_thresh).float()
@@ -383,14 +604,13 @@ def train_one_epoch(
             # extra cls constraint: strong-mix pairs should match weak-mix cls_wm
             _, _, cls_s1m = model(uL_s1m, uT_s1m)
             _, _, cls_s2m = model(uL_s2m, uT_s2m)
-            # compare probabilities: sigmoid(logits)
             loss_u_s_cls = (criterion_cls_mse(torch.sigmoid(cls_s1m), torch.sigmoid(cls_wm))
                             + criterion_cls_mse(torch.sigmoid(cls_s2m), torch.sigmoid(cls_wm))) / 2.0
 
-            # total loss (keep your original weights)
+            # total loss
             loss = (
                 loss_x_seg + loss_x_cls
-                + loss_u_s_seg * 0.5            # = 0.25(s1)+0.25(s2) after averaging
+                + loss_u_s_seg * 0.5
                 + loss_u_w_fp_seg * 0.5
                 + loss_u_s_cls * 0.1
             )
@@ -404,7 +624,7 @@ def train_one_epoch(
                 loss.backward()
                 optimizer.step()
 
-        # poly lr (same as your old code)
+        # poly lr
         iters = epoch * len(loader_u) + i
         lr = args.base_lr * (1 - iters / total_iters) ** 0.9
         optimizer.param_groups[0]["lr"] = lr
@@ -439,74 +659,58 @@ def train_one_epoch(
         "mask_ratio": total_mask_ratio.avg,
     }
 
+
 @torch.no_grad()
 def validate(args, model, valid_loader, device, logger, writer=None, epoch=None):
     model.eval()
 
-    # -------------------------
-    # segmentation dice accumulators
-    # -------------------------
-    dice_long = {1: 0.0, 2: 0.0}
+    dice_long  = {1: 0.0, 2: 0.0}
     dice_trans = {1: 0.0, 2: 0.0}
+    nsd_long   = {1: 0.0, 2: 0.0}
+    nsd_trans  = {1: 0.0, 2: 0.0}
 
-    nsd_long = {1: 0.0, 2: 0.0}
-    nsd_trans = {1: 0.0, 2: 0.0}
-
-    # -------------------------
-    # classification statistics
-    # -------------------------
     cls_pred_list = []
-    cls_gt_list = []
+    cls_gt_list   = []
 
     num_batches = len(valid_loader)
     val_idx = 0
 
     for (x_long, x_trans, m_long, m_trans, y_cls) in valid_loader:
-        x_long = x_long.to(device)
+        x_long  = x_long.to(device)
         x_trans = x_trans.to(device)
-        m_long = m_long.to(device)    # (B,H,W)
+        m_long  = m_long.to(device)
         m_trans = m_trans.to(device)
-        y_cls = y_cls.to(device)      # (B,) or (B,1)
+        y_cls   = y_cls.to(device)
 
-        # resize input
         hL, wL = x_long.shape[-2:]
         hT, wT = x_trans.shape[-2:]
 
-        x_long_r = F.interpolate(x_long, (args.resize_target, args.resize_target),mode="bilinear", align_corners=False)
-        x_trans_r = F.interpolate(x_trans, (args.resize_target, args.resize_target),mode="bilinear", align_corners=False)
+        x_long_r  = F.interpolate(x_long,  (args.resize_target, args.resize_target), mode="bilinear", align_corners=False)
+        x_trans_r = F.interpolate(x_trans, (args.resize_target, args.resize_target), mode="bilinear", align_corners=False)
 
-        # forward
         segL, segT, cls_out = model(x_long_r, x_trans_r)
 
-        # -------------------------
-        # classification (sigmoid -> threshold)
-        # -------------------------
-        cls_prob = torch.sigmoid(cls_out)               # (B,1)
-        cls_pred = (cls_prob >= 0.5).long().view(-1)     # (B,)
+        cls_prob = torch.sigmoid(cls_out)
+        cls_pred = (cls_prob >= 0.5).long().view(-1)
         cls_pred_list.extend(cls_pred.cpu().numpy().tolist())
         cls_gt_list.extend(y_cls.view(-1).cpu().numpy().tolist())
-        # -------------------------
-        # segmentation Dice
-        # -------------------------
+
         segL = F.interpolate(segL, (hL, wL), mode="bilinear", align_corners=False)
         segT = F.interpolate(segT, (hT, wT), mode="bilinear", align_corners=False)
 
-        predL = torch.argmax(segL, dim=1)  # (B,H,W)
+        predL = torch.argmax(segL, dim=1)
         predT = torch.argmax(segT, dim=1)
 
-        # -------------------------
-        # Visualization to TensorBoard (per-sample) - placed after pred computed
-        # -------------------------
+        # TensorBoard visualisation
         if writer is not None:
             try:
-                # prepare numpy arrays: normalize image to [0,1]
                 xL = x_long[0, 0].cpu().numpy()
                 xT = x_trans[0, 0].cpu().numpy()
+
                 def normalize_im(im):
-                    mn = im.min()
-                    mx = im.max()
+                    mn, mx = im.min(), im.max()
                     if mx - mn < 1e-8:
-                        return (im - mn)
+                        return im - mn
                     return (im - mn) / (mx - mn)
 
                 xL_n = normalize_im(xL)
@@ -514,157 +718,129 @@ def validate(args, model, valid_loader, device, logger, writer=None, epoch=None)
 
                 predL_np = predL[0].cpu().numpy()
                 predT_np = predT[0].cpu().numpy()
-                gtL_np = m_long[0].cpu().numpy()
-                gtT_np = m_trans[0].cpu().numpy()
+                gtL_np   = m_long[0].cpu().numpy()
+                gtT_np   = m_trans[0].cpu().numpy()
 
-                # RGB base
-                baseL = np.stack([xL_n, xL_n, xL_n], axis=0)  # C,H,W
+                baseL = np.stack([xL_n, xL_n, xL_n], axis=0)
                 baseT = np.stack([xT_n, xT_n, xT_n], axis=0)
 
                 def overlay(base, mask, color):
-                    # base: C,H,W in [0,1], mask: H,W bool
-                    over = base.copy()
+                    over  = base.copy()
                     alpha = 0.5
                     for c in range(3):
                         over[c][mask] = over[c][mask] * (1 - alpha) + color[c] * alpha
                     return over
 
-                # colors: plaque (class 1) = red, vessel (class 2) = green
-                red = [1.0, 0.0, 0.0]
+                red   = [1.0, 0.0, 0.0]
                 green = [0.0, 1.0, 0.0]
 
-                predL_vis = baseL.copy()
-                predL_vis = overlay(predL_vis, predL_np == 1, red)
-                predL_vis = overlay(predL_vis, predL_np == 2, green)
+                predL_vis = overlay(overlay(baseL.copy(), predL_np == 1, red),  predL_np == 2, green)
+                gtL_vis   = overlay(overlay(baseL.copy(), gtL_np   == 1, red),  gtL_np   == 2, green)
+                predT_vis = overlay(overlay(baseT.copy(), predT_np == 1, red),  predT_np == 2, green)
+                gtT_vis   = overlay(overlay(baseT.copy(), gtT_np   == 1, red),  gtT_np   == 2, green)
 
-                gtL_vis = baseL.copy()
-                gtL_vis = overlay(gtL_vis, gtL_np == 1, red)
-                gtL_vis = overlay(gtL_vis, gtL_np == 2, green)
-
-                predT_vis = baseT.copy()
-                predT_vis = overlay(predT_vis, predT_np == 1, red)
-                predT_vis = overlay(predT_vis, predT_np == 2, green)
-
-                gtT_vis = baseT.copy()
-                gtT_vis = overlay(gtT_vis, gtT_np == 1, red)
-                gtT_vis = overlay(gtT_vis, gtT_np == 2, green)
-
-                # concatenate horizontally: [C, H, W*3]
                 concatL = np.concatenate([baseL, predL_vis, gtL_vis], axis=2)
                 concatT = np.concatenate([baseT, predT_vis, gtT_vis], axis=2)
 
-                tagL = f"Val/vis/long/{val_idx}"
-                tagT = f"Val/vis/trans/{val_idx}"
                 step = epoch if epoch is not None and epoch >= 0 else 0
-                writer.add_image(tagL, torch.from_numpy(concatL).float(), global_step=step)
-                writer.add_image(tagT, torch.from_numpy(concatT).float(), global_step=step)
+                writer.add_image(f"Val/vis/long/{val_idx}",  torch.from_numpy(concatL).float(), global_step=step)
+                writer.add_image(f"Val/vis/trans/{val_idx}", torch.from_numpy(concatT).float(), global_step=step)
             except Exception as e:
                 logger.warning(f"Failed to write val visualization: {e}")
 
         val_idx += 1
-        for cls in [1, 2]:  # two foreground classes
 
-            # ---------- Dice ----------
-            interL = ((predL == cls) & (m_long == cls)).sum().item()
-            unionL = (predL == cls).sum().item() + (m_long == cls).sum().item()
-            diceL = 2.0 * interL / (unionL + 1e-8)
-            dice_long[cls] += diceL
+        for cls in [1, 2]:
+            interL = ((predL == cls) & (m_long  == cls)).sum().item()
+            unionL = (predL == cls).sum().item() + (m_long  == cls).sum().item()
+            dice_long[cls]  += 2.0 * interL / (unionL + 1e-8)
 
-            # trans Dice
             interT = ((predT == cls) & (m_trans == cls)).sum().item()
             unionT = (predT == cls).sum().item() + (m_trans == cls).sum().item()
-            diceT = 2.0 * interT / (unionT + 1e-8)
-            dice_trans[cls] += diceT
+            dice_trans[cls] += 2.0 * interT / (unionT + 1e-8)
 
-            # ---------- NSD ----------
             predL_np = (predL[0] == cls).cpu().numpy()
-            gtL_np = (m_long[0] == cls).cpu().numpy()
-            nsd_long[cls] += compute_nsd(predL_np, gtL_np, tolerance=3.0)
+            gtL_np   = (m_long[0]  == cls).cpu().numpy()
+            nsd_long[cls]  += compute_nsd(predL_np, gtL_np,  tolerance=3.0)
 
             predT_np = (predT[0] == cls).cpu().numpy()
-            gtT_np = (m_trans[0] == cls).cpu().numpy()
+            gtT_np   = (m_trans[0] == cls).cpu().numpy()
             nsd_trans[cls] += compute_nsd(predT_np, gtT_np, tolerance=3.0)
 
-    # -------------------------
-    # segmentation 结果
-    # -------------------------
-    idx_to_name = {1:"Plaque", 2:"Vessel"}
+    idx_to_name = {1: "Plaque", 2: "Vessel"}
     for cls in [1, 2]:
-        dice_long[cls] = dice_long[cls] / max(1, num_batches)
-        dice_trans[cls] = dice_trans[cls] / max(1, num_batches)
+        dice_long[cls]  /= max(1, num_batches)
+        dice_trans[cls] /= max(1, num_batches)
         logger.info(f"[Dice] {idx_to_name[cls]} | Long Dice: {dice_long[cls]:.2f} | Trans Dice: {dice_trans[cls]:.2f}")
 
-        nsd_long[cls] = nsd_long[cls] / max(1, num_batches)
-        nsd_trans[cls] = nsd_trans[cls] / max(1, num_batches)
+        nsd_long[cls]  /= max(1, num_batches)
+        nsd_trans[cls] /= max(1, num_batches)
         logger.info(f"[NSD] {idx_to_name[cls]} | Long NSD: {nsd_long[cls]:.2f} | Trans NSD: {nsd_trans[cls]:.2f}")
 
     mean_dice = (dice_long[1] + dice_long[2] + dice_trans[1] + dice_trans[2]) / 4.0
-    mean_NSD =  (nsd_long[1]  + nsd_long[2]  + nsd_trans[1]  + nsd_trans[2]) / 4.0
-
+    mean_NSD  = (nsd_long[1]  + nsd_long[2]  + nsd_trans[1]  + nsd_trans[2]) / 4.0
     logger.info(f"[Dice] Mean Foreground Dice: {mean_dice:.3f}")
     logger.info(f"[NSD] Mean Foreground NSD: {mean_NSD:.3f}")
 
-    # -------------------------
-    # classification F1
-    # -------------------------
-    cls_gt = np.array(cls_gt_list)
+    cls_gt   = np.array(cls_gt_list)
     cls_pred = np.array(cls_pred_list)
-
-    f1 = f1_score(cls_gt, cls_pred)
-
+    f1       = f1_score(cls_gt, cls_pred)
     logger.info(f"[Cls] F1 Score: {f1:.4f}")
 
-    # Format confusion matrix: counts + per-true-class percentages for readability
-    cm = confusion_matrix(cls_gt, cls_pred)
+    cm     = confusion_matrix(cls_gt, cls_pred)
     labels = list(range(cm.shape[0]))
 
     def _format_confusion_matrix(cm_array, lbls):
-        """Return a human-readable multiline string for confusion matrix."""
         header = "\t" + "\t".join([f"Pred:{l}" for l in lbls])
-        lines = [header]
+        lines  = [header]
         for i, l in enumerate(lbls):
-            counts = "\t".join(str(int(x)) for x in cm_array[i])
+            counts    = "\t".join(str(int(x)) for x in cm_array[i])
             row_total = cm_array[i].sum()
-            if row_total > 0:
-                percents = "\t".join(f"{(cm_array[i, j] / row_total * 100):.1f}%" for j in range(cm_array.shape[1]))
-            else:
-                percents = "\t".join("0.0%" for _ in range(cm_array.shape[1]))
+            percents  = (
+                "\t".join(f"{(cm_array[i, j] / row_total * 100):.1f}%" for j in range(cm_array.shape[1]))
+                if row_total > 0 else
+                "\t".join("0.0%" for _ in range(cm_array.shape[1]))
+            )
             lines.append(f"True:{l}\t{counts}\t| {percents}")
         return "\n".join(lines)
 
     logger.info("Confusion Matrix (rows=true labels, cols=pred labels):\n" + _format_confusion_matrix(cm, labels))
 
     return {
-        "dice_long_vessel": dice_long[2],
-        "dice_long_plaque": dice_long[1],
+        "dice_long_vessel":  dice_long[2],
+        "dice_long_plaque":  dice_long[1],
         "dice_trans_vessel": dice_trans[2],
         "dice_trans_plaque": dice_trans[1],
-        
-        "nsd_long_vessel": nsd_long[2],
-        "nsd_long_plaque": nsd_long[1],
+
+        "nsd_long_vessel":  nsd_long[2],
+        "nsd_long_plaque":  nsd_long[1],
         "nsd_trans_vessel": nsd_trans[2],
         "nsd_trans_plaque": nsd_trans[1],
-        
+
         "cls_score": f1,
 
-        "seg_socre_long_vessel": (dice_long[2] + nsd_long[2])/2,
-        "seg_socre_long_plaque": (dice_long[1] + nsd_long[1])/2,
-        "seg_socre_trans_vessel": (dice_trans[2] + nsd_trans[2])/2,
-        "seg_socre_trans_plaque": (dice_trans[1] + nsd_trans[1])/2,
+        "seg_socre_long_vessel":  (dice_long[2]  + nsd_long[2])  / 2,
+        "seg_socre_long_plaque":  (dice_long[1]  + nsd_long[1])  / 2,
+        "seg_socre_trans_vessel": (dice_trans[2] + nsd_trans[2]) / 2,
+        "seg_socre_trans_plaque": (dice_trans[1] + nsd_trans[1]) / 2,
 
-        "seg_score":((dice_long[2] + nsd_long[2])/2 *0.4 +\
-            (dice_long[1] + nsd_long[1])/2 *0.6 +\
-            (dice_trans[2] + nsd_trans[2])/2 *0.4 +\
-            (dice_trans[1] + nsd_trans[1])/2 *0.6)/2,
-        
-        # Note: total_score currently capped around 0.8 locally because the
-        # time-efficiency component (20% of total) is not computed in local eval.
-        "total_score": f1 *0.4 +\
-            (dice_long[2] + nsd_long[2])/2 *0.4*0.2 +\
-            (dice_long[1] + nsd_long[1])/2 *0.6*0.2 +\
-            (dice_trans[2] + nsd_trans[2])/2 *0.4*0.2 +\
-            (dice_trans[1] + nsd_trans[1])/2 *0.6*0.2,
+        "seg_score": (
+            (dice_long[2]  + nsd_long[2])  / 2 * 0.4 +
+            (dice_long[1]  + nsd_long[1])  / 2 * 0.6 +
+            (dice_trans[2] + nsd_trans[2]) / 2 * 0.4 +
+            (dice_trans[1] + nsd_trans[1]) / 2 * 0.6
+        ) / 2,
+
+        # total_score capped ~0.8 locally (time component not evaluated here)
+        "total_score": (
+            f1 * 0.4 +
+            (dice_long[2]  + nsd_long[2])  / 2 * 0.4 * 0.2 +
+            (dice_long[1]  + nsd_long[1])  / 2 * 0.6 * 0.2 +
+            (dice_trans[2] + nsd_trans[2]) / 2 * 0.4 * 0.2 +
+            (dice_trans[1] + nsd_trans[1]) / 2 * 0.6 * 0.2
+        ),
     }
+
 
 def build_logger(save_path: str):
     logger = logging.getLogger("UniMatch TwoView Training")
@@ -682,12 +858,8 @@ def build_logger(save_path: str):
     logger.addHandler(sh)
     return logger
 
+
 def get_model(args):
-    """
-    Return model instance based on args.model.
-      - 'Echocare' -> Echocare_UniMatch(...) (uses encoder checkpoint)
-      - 'UNet'     -> UNetTwoView(...)
-    """
     if args.model == "Echocare":
         model = Echocare_UniMatch(
             in_chns=1,

@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from model.Echocare import Echocare_UniMatch
+from model.unet import UNetTwoView
 
 
 class ValH5Dataset:
@@ -113,7 +113,13 @@ def main():
     ds = ValH5Dataset(images_dir)
 
     # build model (Echocare)
-    model = Echocare_UniMatch(in_chns=1, seg_class_num=3, cls_class_num=1, encoder_pth=args.encoder_pth)
+    # model = Echocare_UniMatch(in_chns=1, seg_class_num=3, cls_class_num=1, encoder_pth=args.encoder_pth)
+    model = UNetTwoView(
+            in_chns=1,
+            seg_class_num=3,
+            cls_class_num=1,
+        )
+
     model = model.to(device)
 
     # load checkpoint
