@@ -203,7 +203,7 @@ def main():
         "--cls_weight_trans", type=float, default=0.25,
         help="Weight for the transverse-view classification loss (UNetV2 only).")
 
-    parser.add_argument("--save_path",   type=str, default="./checkpoints")
+    parser.add_argument("--save_path",   type=str, default="./checkpoints_new_arq")
     parser.add_argument("--gpu",         type=str, default="3")
     parser.add_argument("--num_workers", type=int, default=8)
 

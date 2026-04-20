@@ -94,7 +94,7 @@ def main():
     parser = argparse.ArgumentParser(description="Inference script for CSV challenge (Echocare)")
     parser.add_argument("--val-dir", type=str, required=True,
                         help="Path to validation folder that contains 'images' subfolder with .h5 files")
-    parser.add_argument("--checkpoint", type=str, default="./checkpoints/best.pth", help="Path to checkpoint (best.pth)")
+    parser.add_argument("--checkpoint", type=str, default="./checkpoints_orig/best.pth", help="Path to checkpoint (best.pth)")
     parser.add_argument("--encoder-pth", type=str, default="./pretrain/echocare_encoder.pth", help="Pretrained encoder for Echocare")
     parser.add_argument("--output-dir", type=str, default=None, help="Output directory under val (default: val/output)")
     parser.add_argument("--resize-target", type=int, default=256, help="Resize input short side used during training")
