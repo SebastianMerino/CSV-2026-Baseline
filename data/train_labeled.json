@@ -1,0 +1,562 @@
+[
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0097.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0097_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0035.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0035_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0006.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0006_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0046.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0046_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0092.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0092_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0187.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0187_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0101.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0101_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0066.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0066_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0025.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0025_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0149.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0149_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0043.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0043_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0019.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0019_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0084.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0084_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0017.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0017_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0034.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0034_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0023.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0023_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0184.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0184_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0182.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0182_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0108.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0108_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0076.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0076_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0054.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0054_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0079.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0079_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0121.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0121_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0040.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0040_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0195.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0195_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0131.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0131_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0144.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0144_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0055.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0055_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0107.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0107_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0073.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0073_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0139.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0139_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0104.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0104_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0089.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0089_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0162.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0162_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0072.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0072_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0161.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0161_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0030.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0030_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0102.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0102_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0105.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0105_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0196.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0196_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0130.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0130_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0135.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0135_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0048.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0048_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0032.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0032_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0110.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0110_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0166.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0166_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0065.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0065_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0137.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0137_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0057.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0057_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0148.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0148_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0142.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0142_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0112.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0112_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0088.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0088_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0194.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0194_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0165.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0165_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0002.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0002_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0143.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0143_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0069.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0069_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0151.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0151_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0181.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0181_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0133.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0133_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0122.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0122_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0124.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0124_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0160.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0160_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0038.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0038_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0037.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0037_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0153.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0153_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0169.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0169_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0003.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0003_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0174.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0174_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0192.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0192_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0008.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0008_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0100.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0100_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0077.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0077_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0078.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0078_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0036.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0036_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0064.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0064_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0167.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0167_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0198.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0198_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0049.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0049_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0010.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0010_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0063.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0063_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0113.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0113_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0026.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0026_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0098.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0098_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0075.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0075_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0199.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0199_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0176.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0176_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0045.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0045_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0080.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0080_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0000.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0000_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0050.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0050_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0128.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0128_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0111.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0111_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0116.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0116_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0190.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0190_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0093.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0093_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0090.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0090_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0186.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0186_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0154.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0154_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0138.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0138_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0126.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0126_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0185.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0185_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0155.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0155_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0028.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0028_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0052.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0052_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0087.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0087_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0082.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0082_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0013.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0013_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0021.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0021_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0074.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0074_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0039.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0039_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0027.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0027_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0145.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0145_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0140.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0140_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0163.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0163_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0191.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0191_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0188.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0188_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0096.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0096_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0024.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0024_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0068.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0068_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0136.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0136_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0083.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0083_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0047.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0047_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0103.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0103_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0004.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0004_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0172.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0172_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0132.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0132_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0129.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0129_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0152.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0152_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0059.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0059_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0018.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0018_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0099.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0099_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0175.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0175_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0001.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0001_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0041.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0041_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0009.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0009_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0134.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0134_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0125.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0125_label.h5"
+    },
+    {
+        "image": "/home/sebastian/CSV-2026-Baseline/data/train/images/0159.h5",
+        "label": "/home/sebastian/CSV-2026-Baseline/data/train/labels/0159_label.h5"
+    }
+]
