@@ -231,21 +231,74 @@ def load_cls_model(args, device):
     
     return classifier.to(device).eval()
 
+# ─────────────────────────────────────────────────────────────────────────────
+# NEW: Helper function to convert mask to logits (one-hot style)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def mask_to_logits(mask, num_classes, device, resize_target):
+    """
+    Convert a ground truth segmentation mask to "pseudo-logits" that can be
+    fed into the classifier in place of predicted segmentation logits.
+    
+    Args:
+        mask: (H, W) numpy array with integer class labels
+        num_classes: number of segmentation classes
+        device: torch device
+        resize_target: target size for resizing
+    
+    Returns:
+        logits: (1, num_classes, resize_target, resize_target) tensor
+                with high values (e.g., 10) for the correct class and low (-10) for others
+    """
+    H, W = mask.shape
+    
+    # Create one-hot encoding: (H, W) -> (num_classes, H, W)
+    one_hot = np.zeros((num_classes, H, W), dtype=np.float32)
+    for c in range(num_classes):
+        one_hot[c] = (mask == c).astype(np.float32)
+    
+    # Convert to tensor and add batch dimension: (1, num_classes, H, W)
+    logits = torch.from_numpy(one_hot).unsqueeze(0).to(device)
+    
+    # Resize to match expected input size
+    logits = F.interpolate(logits, (resize_target, resize_target), mode="bilinear", align_corners=False)
+    
+    # Scale to logit-like values (high confidence)
+    # Using large values so softmax gives ~1.0 for correct class
+    logits = logits * 20 - 10  # Maps 0->-10, 1->10
+    
+    return logits
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Inference
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────────────────
+# MODIFIED: predict_single with option to use GT segmentation for classification
+# ─────────────────────────────────────────────────────────────────────────────
+
 @torch.no_grad()
-def predict_single(seg_model, classifier, device, sample, resize_target, cls_threshold, use_tta=False):
+def predict_single(seg_model, classifier, device, sample, resize_target, cls_threshold, 
+                   use_tta=False, seg_num_classes=3):
+    """
+    Run inference on a single sample.
+    
+    Returns predictions using:
+    1. Predicted segmentation (normal operation)
+    2. Ground truth segmentation (oracle mode, if GT available)
+    """
     long_t = sample['long_t'].unsqueeze(0).to(device)
     trans_t = sample['trans_t'].unsqueeze(0).to(device)
     long_shape = sample['long_shape']
     trans_shape = sample['trans_shape']
     
+    # Resize images
     xL_r = F.interpolate(long_t, (resize_target, resize_target), mode="bilinear", align_corners=False)
     xT_r = F.interpolate(trans_t, (resize_target, resize_target), mode="bilinear", align_corners=False)
     
+    # ─────────────────────────────────────────────────────────────────────────
+    # 1. Normal prediction: Use model's segmentation
+    # ─────────────────────────────────────────────────────────────────────────
     segL_logits, segT_logits, _ = seg_model(xL_r, xT_r)
     
     if use_tta:
@@ -253,41 +306,111 @@ def predict_single(seg_model, classifier, device, sample, resize_target, cls_thr
         segL_logits = (segL_logits + segL_f.flip(-1)) / 2
         segT_logits = (segT_logits + segT_f.flip(-1)) / 2
     
+    # Classification with PREDICTED segmentation
     cls_out = classifier(xL_r, xT_r, segL_logits, segT_logits)
     cls_prob = torch.sigmoid(cls_out).cpu().item()
     cls_pred = 1 if cls_prob >= cls_threshold else 0
     
+    # Get segmentation predictions
     segL_up = F.interpolate(segL_logits, long_shape, mode="bilinear", align_corners=False)
     segT_up = F.interpolate(segT_logits, trans_shape, mode="bilinear", align_corners=False)
-    
     pred_long = torch.argmax(segL_up, dim=1).squeeze(0).cpu().numpy().astype(np.uint8)
     pred_trans = torch.argmax(segT_up, dim=1).squeeze(0).cpu().numpy().astype(np.uint8)
     
-    return pred_long, pred_trans, cls_pred, cls_prob
-
+    # ─────────────────────────────────────────────────────────────────────────
+    # 2. Oracle prediction: Use GT segmentation (if available)
+    # ─────────────────────────────────────────────────────────────────────────
+    cls_pred_oracle = None
+    cls_prob_oracle = None
+    
+    if sample['long_mask_gt'] is not None and sample['trans_mask_gt'] is not None:
+        # Convert GT masks to pseudo-logits
+        gt_segL_logits = mask_to_logits(sample['long_mask_gt'], seg_num_classes, device, resize_target)
+        gt_segT_logits = mask_to_logits(sample['trans_mask_gt'], seg_num_classes, device, resize_target)
+        
+        # Classification with GROUND TRUTH segmentation
+        cls_out_oracle = classifier(xL_r, xT_r, gt_segL_logits, gt_segT_logits)
+        cls_prob_oracle = torch.sigmoid(cls_out_oracle).cpu().item()
+        cls_pred_oracle = 1 if cls_prob_oracle >= cls_threshold else 0
+    
+    return {
+        # Segmentation predictions
+        'pred_long': pred_long,
+        'pred_trans': pred_trans,
+        # Classification with predicted segmentation
+        'cls_pred': cls_pred,
+        'cls_prob': cls_prob,
+        # Classification with GT segmentation (oracle)
+        'cls_pred_oracle': cls_pred_oracle,
+        'cls_prob_oracle': cls_prob_oracle,
+    }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Metrics
 # ─────────────────────────────────────────────────────────────────────────────
 
 def compute_metrics(results, seg_classes=3):
+    """
+    MODIFIED FUNCTION TO ALSO COMPUTE OFFICIAL CSV 2026 CHALLENGE SCORES.
+    
+    Segmentation Score (S_seg):
+        S_v,vessel = (DSC_vessel + NSD_vessel) / 2
+        S_v,plaque = (DSC_plaque + NSD_plaque) / 2  
+        S_v = 0.4 * S_v,vessel + 0.6 * S_v,plaque
+        S_seg = (S_long + S_trans) / 2
+    
+    Classification Score (S_cls):
+        Average F1-score across all classes
+    """
     metrics = {}
     
-    # Classification
+    # ─────────────────────────────────────────────────────────────────────────
+    # Classification with PREDICTED segmentation
+    # ─────────────────────────────────────────────────────────────────────────
     cls_gts = [r['cls_gt'] for r in results if r['cls_gt'] is not None]
     cls_preds = [r['cls_pred'] for r in results if r['cls_gt'] is not None]
+    cls_probs = [r['cls_prob'] for r in results if r['cls_gt'] is not None]
     
     if cls_gts:
         metrics['cls_accuracy'] = sum(g == p for g, p in zip(cls_gts, cls_preds)) / len(cls_gts)
         metrics['cls_f1'] = f1_score(cls_gts, cls_preds, zero_division=0)
         
-        cls_probs = [r['cls_prob'] for r in results if r['cls_gt'] is not None]
         if len(set(cls_gts)) > 1:
             metrics['cls_auc'] = roc_auc_score(cls_gts, cls_probs)
         
         metrics['confusion_matrix'] = confusion_matrix(cls_gts, cls_preds)
     
-    # Segmentation
+    # ─────────────────────────────────────────────────────────────────────────
+    # Classification with GT segmentation (ORACLE)
+    # ─────────────────────────────────────────────────────────────────────────
+    cls_preds_oracle = [r['cls_pred_oracle'] for r in results 
+                        if r['cls_gt'] is not None and r['cls_pred_oracle'] is not None]
+    cls_probs_oracle = [r['cls_prob_oracle'] for r in results 
+                        if r['cls_gt'] is not None and r['cls_prob_oracle'] is not None]
+    cls_gts_oracle = [r['cls_gt'] for r in results 
+                      if r['cls_gt'] is not None and r['cls_pred_oracle'] is not None]
+    
+    if cls_gts_oracle:
+        metrics['cls_accuracy_oracle'] = sum(g == p for g, p in zip(cls_gts_oracle, cls_preds_oracle)) / len(cls_gts_oracle)
+        metrics['cls_f1_oracle'] = f1_score(cls_gts_oracle, cls_preds_oracle, zero_division=0)
+        
+        if len(set(cls_gts_oracle)) > 1:
+            metrics['cls_auc_oracle'] = roc_auc_score(cls_gts_oracle, cls_probs_oracle)
+        
+        metrics['confusion_matrix_oracle'] = confusion_matrix(cls_gts_oracle, cls_preds_oracle)
+        
+        # ─────────────────────────────────────────────────────────────────────
+        # Performance gap analysis
+        # ─────────────────────────────────────────────────────────────────────
+        metrics['cls_accuracy_gap'] = metrics['cls_accuracy_oracle'] - metrics['cls_accuracy']
+        metrics['cls_f1_gap'] = metrics['cls_f1_oracle'] - metrics['cls_f1']
+        
+        if 'cls_auc' in metrics and 'cls_auc_oracle' in metrics:
+            metrics['cls_auc_gap'] = metrics['cls_auc_oracle'] - metrics['cls_auc']
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # Segmentation metrics (unchanged)
+    # ─────────────────────────────────────────────────────────────────────────
     seg_dice = defaultdict(list)
     seg_nsd = defaultdict(list)
     
@@ -306,8 +429,57 @@ def compute_metrics(results, seg_classes=3):
         if values:
             metrics[key] = np.mean(values)
     
+    # ─────────────────────────────────────────────────────────────────────────
+    # Per-sample analysis: Correlation between seg quality and cls correctness
+    # ─────────────────────────────────────────────────────────────────────────
+    per_sample_data = []
+    for r in results:
+        if r['cls_gt'] is None or r['long_mask_gt'] is None:
+            continue
+        
+        # Calculate average segmentation score for this sample
+        dice_scores = []
+        nsd_scores = []
+        for view, pred_key, gt_key in [('long', 'pred_long', 'long_mask_gt'), 
+                                        ('trans', 'pred_trans', 'trans_mask_gt')]:
+            gt = r[gt_key]
+            pred = r[pred_key]
+            for c in range(1, seg_classes):
+                dice_scores.append(compute_dice(pred, gt, c))
+                nsd_scores.append(compute_nsd((pred == c), (gt == c), tolerance=3.0))
+        
+        avg_dice = np.mean(dice_scores)
+        avg_nsd = np.mean(nsd_scores)
+        cls_correct = int(r['cls_pred'] == r['cls_gt'])
+        cls_correct_oracle = int(r['cls_pred_oracle'] == r['cls_gt']) if r['cls_pred_oracle'] is not None else None
+        
+        per_sample_data.append({
+            'avg_dice': avg_dice,
+            'avg_nsd': avg_nsd,
+            'cls_correct': cls_correct,
+            'cls_correct_oracle': cls_correct_oracle,
+            'cls_pred_changed': r['cls_pred'] != r['cls_pred_oracle'] if r['cls_pred_oracle'] is not None else None,
+        })
+    
+    if per_sample_data:
+        # Samples where prediction changed when using GT segmentation
+        changed_samples = [s for s in per_sample_data if s['cls_pred_changed']]
+        metrics['num_cls_predictions_changed'] = len(changed_samples)
+        metrics['pct_cls_predictions_changed'] = len(changed_samples) / len(per_sample_data) * 100
+        
+        # Average segmentation quality for correct vs incorrect classifications
+        correct_samples = [s for s in per_sample_data if s['cls_correct'] == 1]
+        incorrect_samples = [s for s in per_sample_data if s['cls_correct'] == 0]
+        
+        if correct_samples:
+            metrics['avg_dice_when_cls_correct'] = np.mean([s['avg_dice'] for s in correct_samples])
+            metrics['avg_nsd_when_cls_correct'] = np.mean([s['avg_nsd'] for s in correct_samples])
+        
+        if incorrect_samples:
+            metrics['avg_dice_when_cls_incorrect'] = np.mean([s['avg_dice'] for s in incorrect_samples])
+            metrics['avg_nsd_when_cls_incorrect'] = np.mean([s['avg_nsd'] for s in incorrect_samples])
+    
     return metrics
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Visualization
@@ -422,10 +594,17 @@ def main():
     parser.add_argument("--num_grid_samples", type=int, default=8)
     parser.add_argument("--gpu", type=str, default="0")
     
+    # Option to run segmentation impact analysis
+    parser.add_argument("--analyze_seg_impact", action="store_true",
+                        help="Analyze impact of segmentation quality on classification")   
+
     args = parser.parse_args()
     
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #device = torch.device("cpu")
+
     print(f"Device: {device}")
     
     # Dataset
@@ -444,32 +623,42 @@ def main():
         args.cls_threshold = 0.5
     print(f"Threshold: {args.cls_threshold:.3f} | TTA: {args.use_tta}")
     
+    if args.analyze_seg_impact:
+        print("Segmentation impact analysis ENABLED")
+
     # Inference
     print("\nRunning inference...")
     results = []
     
     for idx in range(len(dataset)):
         sample = dataset[idx]
-        pred_long, pred_trans, cls_pred, cls_prob = predict_single(
+        preds = predict_single(
             seg_model, classifier, device, sample,
-            args.resize_target, args.cls_threshold, args.use_tta
+            args.resize_target, args.cls_threshold, args.use_tta,
+            seg_num_classes=args.seg_num_classes  # Also missing this argument!
         )
         
         results.append({
             'filename': sample['filename'],
             'path': sample['path'],
-            'pred_long': pred_long,
-            'pred_trans': pred_trans,
-            'cls_pred': cls_pred,
-            'cls_prob': cls_prob,
+            'pred_long': preds['pred_long'],
+            'pred_trans': preds['pred_trans'],
+            'cls_pred': preds['cls_pred'],
+            'cls_prob': preds['cls_prob'],
+            'cls_pred_oracle': preds['cls_pred_oracle'],
+            'cls_prob_oracle': preds['cls_prob_oracle'],
             'cls_gt': sample['cls_gt'],
             'long_mask_gt': sample['long_mask_gt'],
             'trans_mask_gt': sample['trans_mask_gt'],
         })
         
         # Progress
-        gt_info = f" | GT cls={sample['cls_gt']}" if sample['cls_gt'] is not None else ""
-        print(f"[{idx+1:3d}/{len(dataset)}] {sample['filename']} | pred={cls_pred} prob={cls_prob:.3f}{gt_info}")
+        gt_info = f" | GT={sample['cls_gt']}" if sample['cls_gt'] is not None else ""
+        oracle_info = ""
+        if preds['cls_pred_oracle'] is not None:
+            match = "=" if preds['cls_pred'] == preds['cls_pred_oracle'] else "≠"
+            oracle_info = f" | oracle={preds['cls_pred_oracle']}({match})"
+        print(f"[{idx+1:3d}/{len(dataset)}] {sample['filename']} | pred={preds['cls_pred']} prob={preds['cls_prob']:.3f}{oracle_info}{gt_info}")
     
     # Metrics
     metrics = compute_metrics(results, args.seg_num_classes)
@@ -492,7 +681,7 @@ def main():
     print("\nSegmentation NSD:")
     for key in sorted(k for k in metrics if k.startswith('nsd_')):
         print(f"  {key}: {metrics[key]:.4f}")
-    
+    '''
     # Save outputs
     if args.save_preds:
         preds_path = os.path.join(out_dir, "predictions.json")
@@ -505,7 +694,56 @@ def main():
         with open(preds_path, 'w') as f:
             json.dump(save_data, f, indent=2)
         print(f"\nSaved predictions: {preds_path}")
-    
+    '''
+    ### ADD MORE PER/FILE STATISTICS
+    # Save outputs
+    if args.save_preds:
+        preds_path = os.path.join(out_dir, "predictions.json")
+        save_data = []
+        
+        for r in results:
+            sample_data = {
+                'filename': r['filename'],
+                # Classification with predicted segmentation
+                'cls_pred': r['cls_pred'],
+                'cls_prob': float(r['cls_prob']),
+                # Classification with GT segmentation (oracle)
+                'cls_pred_oracle': r['cls_pred_oracle'],
+                'cls_prob_oracle': float(r['cls_prob_oracle']) if r['cls_prob_oracle'] is not None else None,
+                # Ground truth
+                'cls_gt': r['cls_gt'],
+                # Analysis fields
+                'pred_changed': r['cls_pred'] != r['cls_pred_oracle'] if r['cls_pred_oracle'] is not None else None,
+                'prob_diff': float(r['cls_prob_oracle'] - r['cls_prob']) if r['cls_prob_oracle'] is not None else None,
+                'cls_correct': r['cls_pred'] == r['cls_gt'] if r['cls_gt'] is not None else None,
+                'cls_correct_oracle': r['cls_pred_oracle'] == r['cls_gt'] if (r['cls_gt'] is not None and r['cls_pred_oracle'] is not None) else None,
+            }
+            
+            # Add per-sample segmentation metrics if GT available
+            if r['long_mask_gt'] is not None and r['trans_mask_gt'] is not None:
+                seg_metrics = {}
+                for view, pred_key, gt_key in [('long', 'pred_long', 'long_mask_gt'), 
+                                                ('trans', 'pred_trans', 'trans_mask_gt')]:
+                    pred = r[pred_key]
+                    gt = r[gt_key]
+                    for c in range(1, args.seg_num_classes):
+                        class_name = 'vessel' if c == 1 else 'plaque'
+                        seg_metrics[f'dice_{view}_{class_name}'] = float(compute_dice(pred, gt, c))
+                        seg_metrics[f'nsd_{view}_{class_name}'] = float(compute_nsd((pred == c), (gt == c), tolerance=3.0))
+                
+                # Average scores
+                seg_metrics['avg_dice'] = float(np.mean([v for k, v in seg_metrics.items() if k.startswith('dice_')]))
+                seg_metrics['avg_nsd'] = float(np.mean([v for k, v in seg_metrics.items() if k.startswith('nsd_')]))
+                
+                sample_data['segmentation'] = seg_metrics
+            
+            save_data.append(sample_data)
+        
+        with open(preds_path, 'w') as f:
+            json.dump(save_data, f, indent=2)
+        print(f"\nSaved predictions: {preds_path}")
+    ###
+
     if args.save_grid:
         grid_path = os.path.join(out_dir, "qualitative_grid.png")
         save_qualitative_grid(results, grid_path, args.num_grid_samples)

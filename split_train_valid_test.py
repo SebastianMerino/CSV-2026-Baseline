@@ -3,14 +3,15 @@
 split_train_valid_test.py
 
 Generate train/valid/test JSON splits for semi-supervised CSV 2026 challenge.
+Modified for 5-fold cross-validation.
 
-Creates:
+Creates for each fold:
   - train_labeled.json: Labeled training samples
   - train_unlabeled.json: Unlabeled training samples  
   - valid.json: Validation samples (for training monitoring)
   - test.json: Test samples (for final evaluation with inference_post.py)
 
-All splits are balanced by class when possible.
+All splits are stratified by class.
 """
 
 import os
@@ -22,71 +23,31 @@ import argparse
 
 def get_args():
     parser = argparse.ArgumentParser(
-        description="Generate train/valid/test JSON splits for CSV 2026 challenge"
+        description="Generate train/valid/test JSON splits for CSV 2026 challenge (5-fold CV)"
     )
     parser.add_argument("--root", type=str, default="./data", help="Dataset root path")
     parser.add_argument("--seed", type=int, default=2026, help="Random seed")
-    parser.add_argument("--val_size", type=int, default=30,
-                        help="Number of samples for validation (balanced 1:1)")
-    parser.add_argument("--test_size", type=int, default=30,
-                        help="Number of samples for test (balanced 1:1)")
+    parser.add_argument("--n_folds", type=int, default=5, help="Number of folds for cross-validation")
     return parser.parse_args()
 
 
 def read_class_label(label_h5_path):
-    """Read class label from h5 file."""
+    """Read class label from HDF5 file."""
     try:
         with h5py.File(label_h5_path, 'r') as hf:
             cls_raw = hf['cls'][()]
             try:
-                cls_val = int(cls_raw)
+                return int(cls_raw)
             except Exception:
                 if hasattr(cls_raw, "tolist"):
-                    cls_val = int(cls_raw.tolist()[0])
+                    return int(cls_raw.tolist()[0])
                 else:
-                    cls_val = int(cls_raw[0])
-        return cls_val
+                    return int(cls_raw[0])
     except Exception:
         return 0
 
 
-def balanced_sample(class0_list, class1_list, total_size, seed=None):
-    """
-    Sample balanced subset from two class lists.
-    
-    Returns:
-        sampled: List of sampled entries
-        remaining0: Remaining class 0 entries
-        remaining1: Remaining class 1 entries
-    """
-    if seed is not None:
-        random.seed(seed)
-    
-    per_class = total_size // 2
-    
-    # Limit to available samples
-    avail0 = len(class0_list)
-    avail1 = len(class1_list)
-    per_class = min(per_class, avail0, avail1)
-    
-    if per_class == 0:
-        return [], class0_list.copy(), class1_list.copy()
-    
-    # Sample
-    sampled0 = random.sample(class0_list, per_class)
-    sampled1 = random.sample(class1_list, per_class)
-    
-    # Get remaining
-    sampled0_set = set(e['image'] for e in sampled0)
-    sampled1_set = set(e['image'] for e in sampled1)
-    
-    remaining0 = [e for e in class0_list if e['image'] not in sampled0_set]
-    remaining1 = [e for e in class1_list if e['image'] not in sampled1_set]
-    
-    return sampled0 + sampled1, remaining0, remaining1
-
-
-def create_eval_format(entries, labels_dir_path=None):
+def create_eval_format(entries):
     """
     Convert entries to evaluation format with explicit cls_gt.
     """
@@ -101,10 +62,24 @@ def create_eval_format(entries, labels_dir_path=None):
     return eval_list
 
 
+def split_into_folds(data_list, n_folds):
+    """Split a list into n_folds approximately equal parts using round-robin."""
+    folds = [[] for _ in range(n_folds)]
+    for i, item in enumerate(data_list):
+        folds[i % n_folds].append(item)
+    return folds
+
+
+def pct(count, total):
+    """Calculate percentage."""
+    return (count / total * 100) if total > 0 else 0.0
+
+
 if __name__ == "__main__":
     args = get_args()
 
     dataset_root_path = args.root
+    n_folds = args.n_folds
     images_dir_path = os.path.join(dataset_root_path, 'train', 'images')
     labels_dir_path = os.path.join(dataset_root_path, 'train', 'labels')
 
@@ -144,27 +119,7 @@ if __name__ == "__main__":
     original_class1 = len(class1_list)
 
     # ─────────────────────────────────────────────────────────────────────────
-    # Step 1: Sample TEST set first (held out for final evaluation)
-    # ─────────────────────────────────────────────────────────────────────────
-    test_list, class0_remaining, class1_remaining = balanced_sample(
-        class0_list, class1_list, args.test_size, seed=args.seed
-    )
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # Step 2: Sample VALIDATION set from remaining
-    # ─────────────────────────────────────────────────────────────────────────
-    valid_list, class0_remaining, class1_remaining = balanced_sample(
-        class0_remaining, class1_remaining, args.val_size, seed=args.seed + 1
-    )
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # Step 3: Remaining labeled samples go to TRAIN
-    # ─────────────────────────────────────────────────────────────────────────
-    train_labeled_list = class0_remaining + class1_remaining
-    random.shuffle(train_labeled_list)
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # Step 4: Build unlabeled training set
+    # Build unlabeled training set (same for all folds)
     # ─────────────────────────────────────────────────────────────────────────
     train_unlabeled_list = []
     for filename in all_unlabeled_filenames:
@@ -175,85 +130,109 @@ if __name__ == "__main__":
         })
 
     # ─────────────────────────────────────────────────────────────────────────
-    # Create evaluation-format JSONs (with cls_gt for inference_post.py)
+    # Create stratified folds: split each class into n_folds parts
     # ─────────────────────────────────────────────────────────────────────────
-    test_eval_list = create_eval_format(test_list)
-    valid_eval_list = create_eval_format(valid_list)  # Optional: if you want to eval on valid too
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # Save JSON files
-    # ─────────────────────────────────────────────────────────────────────────
-    output_files = {
-        'train_labeled.json': train_labeled_list,
-        'train_unlabeled.json': train_unlabeled_list,
-        'valid.json': valid_list,           # For training script (CSVSemiDataset)
-        'test.json': test_eval_list,        # For inference_post.py (with cls_gt)
-    }
-
-    for filename, data in output_files.items():
-        filepath = os.path.join(dataset_root_path, filename)
-        with open(filepath, 'w') as f:
-            json.dump(data, f, indent=4)
+    class0_folds = split_into_folds(class0_list, n_folds)
+    class1_folds = split_into_folds(class1_list, n_folds)
 
     # ─────────────────────────────────────────────────────────────────────────
-    # Calculate statistics
-    # ─────────────────────────────────────────────────────────────────────────
-    train_class0 = len(class0_remaining)
-    train_class1 = len(class1_remaining)
-    train_total = train_class0 + train_class1
-
-    valid_class0 = sum(1 for e in valid_list if read_class_label(e['label']) == 0)
-    valid_class1 = len(valid_list) - valid_class0
-
-    test_class0 = sum(1 for e in test_list if read_class_label(e['label']) == 0)
-    test_class1 = len(test_list) - test_class0
-
-    def pct(count, total):
-        return (count / total * 100) if total > 0 else 0.0
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # Print summary
+    # Generate each fold
     # ─────────────────────────────────────────────────────────────────────────
     print("")
     print("=" * 60)
-    print("Dataset Split Summary")
+    print(f"Generating {n_folds}-Fold Cross-Validation Splits")
     print("=" * 60)
     print("")
     print(f"Original labeled samples: {original_class0 + original_class1}")
     print(f"  - class 0 (stable):     {original_class0}")
     print(f"  - class 1 (vulnerable): {original_class1}")
+    print(f"Unlabeled samples: {len(train_unlabeled_list)}")
     print("")
-    print("-" * 60)
-    print("")
-    print("TRAINING SET:")
-    print(f"  Labeled samples: {train_total}")
-    print(f"    - class 0 (stable):     {train_class0} ({pct(train_class0, train_total):.1f}%)")
-    print(f"    - class 1 (vulnerable): {train_class1} ({pct(train_class1, train_total):.1f}%)")
-    print(f"  Unlabeled samples: {len(train_unlabeled_list)}")
-    print("")
-    print("VALIDATION SET (for training monitoring):")
-    print(f"  Total samples: {len(valid_list)}")
-    print(f"    - class 0 (stable):     {valid_class0} ({pct(valid_class0, len(valid_list)):.1f}%)")
-    print(f"    - class 1 (vulnerable): {valid_class1} ({pct(valid_class1, len(valid_list)):.1f}%)")
-    print("")
-    print("TEST SET (for final evaluation):")
-    print(f"  Total samples: {len(test_list)}")
-    print(f"    - class 0 (stable):     {test_class0} ({pct(test_class0, len(test_list)):.1f}%)")
-    print(f"    - class 1 (vulnerable): {test_class1} ({pct(test_class1, len(test_list)):.1f}%)")
-    print("")
-    print("-" * 60)
-    print("")
-    print("Output files:")
-    for filename in output_files.keys():
-        filepath = os.path.join(dataset_root_path, filename)
-        print(f"  - {filepath}")
-    print("")
-    print("Usage:")
-    print("  Training:   python train.py --train-labeled-json ./data/train_labeled.json \\")
-    print("                              --train-unlabeled-json ./data/train_unlabeled.json \\")
-    print("                              --valid-labeled-json ./data/valid.json")
-    print("")
-    print("  Evaluation: python inference_post.py --eval_json ./data/test.json \\")
-    print("                                       --seg_checkpoint ./checkpoints/best.pth \\")
-    print("                                       --cls_checkpoint ./checkpoints_post/best_opt.pth")
-    print("=" * 60)
+
+    for fold_idx in range(n_folds):
+        # Create fold directory
+        fold_dir = os.path.join(dataset_root_path, f'fold_{fold_idx}')
+        os.makedirs(fold_dir, exist_ok=True)
+
+        # ─────────────────────────────────────────────────────────────────────
+        # TEST set: fold_idx-th portion of each class
+        # ─────────────────────────────────────────────────────────────────────
+        test_class0 = class0_folds[fold_idx]
+        test_class1 = class1_folds[fold_idx]
+        test_list = test_class0 + test_class1
+
+        # ─────────────────────────────────────────────────────────────────────
+        # VALIDATION set: (fold_idx + 1) % n_folds portion of each class
+        # ─────────────────────────────────────────────────────────────────────
+        valid_fold_idx = (fold_idx + 1) % n_folds
+        valid_class0 = class0_folds[valid_fold_idx]
+        valid_class1 = class1_folds[valid_fold_idx]
+        valid_list = valid_class0 + valid_class1
+
+        # ─────────────────────────────────────────────────────────────────────
+        # TRAINING set: all other folds
+        # ─────────────────────────────────────────────────────────────────────
+        train_class0 = []
+        train_class1 = []
+        for i in range(n_folds):
+            if i != fold_idx and i != valid_fold_idx:
+                train_class0.extend(class0_folds[i])
+                train_class1.extend(class1_folds[i])
+        train_labeled_list = train_class0 + train_class1
+        random.shuffle(train_labeled_list)
+
+        # ─────────────────────────────────────────────────────────────────────
+        # Create evaluation-format JSONs (with cls_gt for inference_post.py)
+        # ─────────────────────────────────────────────────────────────────────
+        test_eval_list = create_eval_format(test_list)
+        valid_eval_list = create_eval_format(valid_list)
+
+        # ─────────────────────────────────────────────────────────────────────
+        # Save JSON files for this fold
+        # ─────────────────────────────────────────────────────────────────────
+        output_files = {
+            'train_labeled.json': train_labeled_list,
+            'train_unlabeled.json': train_unlabeled_list,
+            'valid.json': valid_list,
+            'test.json': test_eval_list,
+        }
+
+        for filename, data in output_files.items():
+            filepath = os.path.join(fold_dir, filename)
+            with open(filepath, 'w') as f:
+                json.dump(data, f, indent=4)
+
+        # ─────────────────────────────────────────────────────────────────────
+        # Calculate and print statistics for this fold
+        # ─────────────────────────────────────────────────────────────────────
+        train_total = len(train_labeled_list)
+        train_c0 = len(train_class0)
+        train_c1 = len(train_class1)
+
+        valid_total = len(valid_list)
+        valid_c0 = len(valid_class0)
+        valid_c1 = len(valid_class1)
+
+        test_total = len(test_list)
+        test_c0 = len(test_class0)
+        test_c1 = len(test_class1)
+
+        print("-" * 60)
+        print(f"FOLD {fold_idx} (output: {fold_dir})")
+        print("-" * 60)
+        print("")
+        print("TRAINING SET:")
+        print(f"  Labeled samples: {train_total}")
+        print(f"    - class 0 (stable):     {train_c0} ({pct(train_c0, train_total):.1f}%)")
+        print(f"    - class 1 (vulnerable): {train_c1} ({pct(train_c1, train_total):.1f}%)")
+        print(f"  Unlabeled samples: {len(train_unlabeled_list)}")
+        print("")
+        print("VALIDATION SET (for training monitoring):")
+        print(f"  Total samples: {valid_total}")
+        print(f"    - class 0 (stable):     {valid_c0} ({pct(valid_c0, valid_total):.1f}%)")
+        print(f"    - class 1 (vulnerable): {valid_c1} ({pct(valid_c1, valid_total):.1f}%)")
+        print("")
+        print("TEST SET (for final evaluation):")
+        print(f"  Total samples: {test_total}")
+        print(f"    - class 0 (stable):     {test_c0} ({pct(test_c0, test_total):.1f}%)")
+        print(f"    - class 1 (vulnerable): {test_c1} ({pct(test_c1, test_total):.1f}%)")

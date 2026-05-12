@@ -497,8 +497,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Create save path with timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    args.save_path = os.path.join(args.save_path, f"{args.classifier}_{timestamp}")
+    args.save_path = os.path.join(args.save_path, f"{args.classifier}")
     
     logger = build_logger(args.save_path)
     logger.info("=" * 70)
