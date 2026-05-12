@@ -5,7 +5,12 @@ Two-stage semi-supervised learning framework for carotid ultrasound analysis. Pr
 ## Requirements
 
 ```bash
-pip install torch torchvision numpy scipy scikit-learn tensorboard h5py pillow
+conda create -n csv-baseline python=3.10 -y
+conda activate csv-baseline
+
+pip install --index-url https://download.pytorch.org/whl/cu121   torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1
+
+pip install -r requirements.txt
 ```
 ## Data Preparation
 First, generate the 5-fold cross-validation splits:
